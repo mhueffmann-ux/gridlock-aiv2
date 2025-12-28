@@ -331,7 +331,7 @@ export default function App() {
         </div>
       </header>
 
-      <main style={{maxWidth:'850px',margin:'0 auto',padding:'16px',height:'calc(100vh - 70px)',display:'flex',flexDirection:'column'}}>
+      <main style={{maxWidth:activeTab==='chat'?'850px':'1100px',margin:'0 auto',padding:'16px',height:'calc(100vh - 70px)',display:'flex',flexDirection:'column'}}>
         {activeTab==='chat'&&(<>
           <div style={{flex:1,overflowY:'auto',marginBottom:'12px'}}>
             {messages.map((msg,i)=>(<div key={i} style={{display:'flex',justifyContent:msg.role==='user'?'flex-end':'flex-start',marginBottom:'14px'}}>
