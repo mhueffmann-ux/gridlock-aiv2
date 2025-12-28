@@ -19,7 +19,7 @@ const SALARY_LOOKUP = {
   'shedeur sanders': 4800, 'philip rivers': 4700, 'tyrod taylor': 4600, 'justin fields': 4600,
   'cam ward': 4500, 'geno smith': 4400, 'quinn ewers': 4300, 'anthony richardson': 4200,
   'riley leonard': 4200, 'brady cook': 4100,
-  
+
   // RBs
   "de'von achane": 8500, 'devon achane': 8500, 'achane': 8500,
   'james cook': 8000, 'james cook iii': 8000,
@@ -37,7 +37,7 @@ const SALARY_LOOKUP = {
   'ty johnson': 4500, 'samaje perine': 4400, 'evan hull': 4400,
   'd\'ernest johnson': 4300, 'tyler goodson': 4300, 'sean tucker': 4200,
   'isaiah davis': 4200, 'raheem mostert': 4100, 'lequint allen': 4100,
-  
+
   // WRs
   'jaxon smith-njigba': 8600, 'jsn': 8600,
   "ja'marr chase": 8300, 'jamarr chase': 8300, 'chase': 8300,
@@ -62,7 +62,7 @@ const SALARY_LOOKUP = {
   'calvin austin': 3200, 'kevin austin': 3200, 'cedric tillman': 3100,
   'gabe davis': 3100, 'isaiah williams': 3100, 'garrett wilson': 3000,
   'tyreek hill': 3000, 'malik nabers': 3000, 'calvin ridley': 3000,
-  
+
   // TEs
   'trey mcbride': 7500, 'mcbride': 7500, 'brock bowers': 5500,
   'harold fannin': 5000, 'harold fannin jr': 5000,
@@ -72,7 +72,7 @@ const SALARY_LOOKUP = {
   'theo johnson': 3400, 'chig okonkwo': 3300, 'cade otton': 3200,
   'dawson knox': 3100, 'david njoku': 3000, 'mason taylor': 3000,
   'noah fant': 2900, 'pat freiermuth': 2900,
-  
+
   // DSTs
   'patriots': 3900, 'patriots dst': 3900, 'new england': 3900, 'ne dst': 3900,
   'seahawks': 3700, 'seahawks dst': 3700, 'seattle': 3700,
@@ -92,7 +92,7 @@ const SALARY_LOOKUP = {
   'dolphins': 2200, 'dolphins dst': 2200, 'miami': 2200,
   'panthers': 2100, 'panthers dst': 2100, 'carolina': 2100,
   'jets': 2000, 'jets dst': 2000, 'new york jets': 2000,
-  
+
   // SHOWDOWN - CHI @ SF (FLEX salaries)
   'christian mccaffrey': 11800, 'cmc': 11800, 'mccaffrey': 11800,
   'brock purdy': 10600, 'purdy': 10600,
@@ -110,7 +110,7 @@ const SALARY_LOOKUP = {
   'bears dst': 3400, 'bears': 3400, 'chicago bears': 3400,
   '49ers dst': 3200, '49ers': 3200, 'san francisco': 3200, 'sf dst': 3200,
   'eric saubert': 2800, 'saubert': 2800,
-  
+
   // SHOWDOWN - CPT salaries (1.5x)
   'christian mccaffrey cpt': 17700, 'cmc cpt': 17700,
   'brock purdy cpt': 15900, 'purdy cpt': 15900,
@@ -130,70 +130,168 @@ const SALARY_LOOKUP = {
   'eric saubert cpt': 4200, 'saubert cpt': 4200,
 };
 
-// Function to validate lineup from AI response
-const validateLineup = (content, isShowdown = false) => {
-  if (!content) return null;
-  
-  // Check if this looks like a lineup (has salary indicators)
-  const hasSalary = /\$[\d,]+/.test(content) || /salary/i.test(content);
-  const hasLineup = /lineup|optimal|roster/i.test(content);
-  if (!hasSalary && !hasLineup) return null;
-  
-  const lines = content.toLowerCase();
-  let foundPlayers = [];
-  let totalFromAI = 0;
-  
-  // Try to extract AI's claimed total
-  const totalMatch = content.match(/total[:\s]*\$?([\d,]+)/i);
-  if (totalMatch) {
-    totalFromAI = parseInt(totalMatch[1].replace(/,/g, ''));
+// ---------- Validation helpers (NEW) ----------
+const normalizeText = (s) => {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // accents
+    .replace(/[’']/g, '')           // apostrophes
+    .replace(/[^a-z0-9\s]/g, ' ')   // punctuation -> spaces
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const extractLineupBlock = (content) => {
+  const m = (content || '').match(/---lineup---([\s\S]*?)---end lineup---/i);
+  return m ? m[1].trim() : null;
+};
+
+const parseLineupLines = (block) => {
+  const lines = (block || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const entries = [];
+
+  for (const line of lines) {
+    // Allow: "QB: Name ($7,000)" OR "QB - Name"
+    const m = line.match(/^(CPT|QB|RB\d?|WR\d?|TE|FLEX\d?|DST|D\/ST|DEF)\s*[:\-–]\s*(.+)$/i);
+    if (!m) continue;
+
+    let slot = m[1].toUpperCase().replace(/\d$/, '');
+    if (slot === 'D/ST' || slot === 'DEF') slot = 'DST';
+
+    // Strip salary annotation + parentheses
+    let name = m[2]
+      .replace(/\$?\s?\d{1,2},?\d{3}\b/g, '')
+      .replace(/\(.*?\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    entries.push({ slot, name, rawLine: line });
   }
-  
-  // Find all players mentioned with salaries
-  for (const [playerKey, salary] of Object.entries(SALARY_LOOKUP)) {
-    // Check if player name appears in content
-    const playerRegex = new RegExp(playerKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    if (playerRegex.test(lines)) {
-      // Check if it's a CPT mention for showdown
-      const isCPT = isShowdown && /cpt|captain/i.test(content) && 
-                    new RegExp(playerKey + '.*?(cpt|captain)|(?:cpt|captain).*?' + playerKey, 'i').test(lines);
-      
-      // Avoid duplicates
-      const existingPlayer = foundPlayers.find(p => p.name === playerKey);
-      if (!existingPlayer) {
-        // For showdown CPT, use CPT salary if available
-        let finalSalary = salary;
-        if (isCPT && SALARY_LOOKUP[playerKey + ' cpt']) {
-          finalSalary = SALARY_LOOKUP[playerKey + ' cpt'];
+
+  return entries;
+};
+
+const buildNormalizedLookup = () => {
+  const map = new Map();
+  for (const [k, v] of Object.entries(SALARY_LOOKUP)) {
+    map.set(normalizeText(k), v);
+  }
+  return map;
+};
+
+const NORMALIZED_SALARY = buildNormalizedLookup();
+
+// prefer longer keys first to avoid "chase" matching "chase brown"
+const NORMALIZED_KEYS_DESC = Array.from(NORMALIZED_SALARY.keys()).sort((a, b) => b.length - a.length);
+
+const resolveSalaryKey = (rawName) => {
+  const n = normalizeText(rawName);
+  if (!n) return null;
+
+  // exact hit
+  if (NORMALIZED_SALARY.has(n)) return n;
+
+  // try longest-first whole-word matching
+  // We add padding spaces so boundary matching behaves on start/end.
+  const padded = ` ${n} `;
+  for (const key of NORMALIZED_KEYS_DESC) {
+    // whole word/phrase match
+    const re = new RegExp(`(^|\\s)${escapeRegex(key)}(\\s|$)`, 'i');
+    if (re.test(padded)) return key;
+  }
+
+  return null;
+};
+
+const computeLineupValidation = (content, isShowdown = false) => {
+  if (!content) return null;
+
+  const block = extractLineupBlock(content);
+  if (!block) return null; // Only validate when Claude uses the strict lineup block
+
+  const entries = parseLineupLines(block);
+  if (entries.length < (isShowdown ? 6 : 9)) {
+    // still show partial info if 5+ entries, but don't mark as valid
+    if (entries.length < 5) return null;
+  }
+
+  const foundPlayers = [];
+  const missing = [];
+  const ambiguous = [];
+  let aiClaimedTotal = 0;
+
+  // Try to extract AI's claimed total (optional)
+  const totalMatch = content.match(/estimated_total[:\s]*\$?([\d,]+)/i) || content.match(/total[:\s]*\$?([\d,]+)/i);
+  if (totalMatch) aiClaimedTotal = parseInt(totalMatch[1].replace(/,/g, ''), 10);
+
+  for (const e of entries) {
+    const key = resolveSalaryKey(e.name);
+
+    if (!key) {
+      missing.push({ slot: e.slot, name: e.name });
+      continue;
+    }
+
+    // Showdown: CPT salary should already be in lookup (… cpt) OR we detect CPT via slot
+    let finalKey = key;
+    let salary = NORMALIZED_SALARY.get(finalKey);
+
+    if (isShowdown && e.slot === 'CPT') {
+      const cptKey = `${finalKey} cpt`;
+      if (NORMALIZED_SALARY.has(cptKey)) {
+        finalKey = cptKey;
+        salary = NORMALIZED_SALARY.get(finalKey);
+      } else {
+        // If model used base name in CPT slot, attempt to find "<name> cpt"
+        const maybe = `${normalizeText(e.name)} cpt`;
+        if (NORMALIZED_SALARY.has(maybe)) {
+          finalKey = maybe;
+          salary = NORMALIZED_SALARY.get(finalKey);
         }
-        foundPlayers.push({ name: playerKey, salary: finalSalary, isCPT });
       }
     }
+
+    // de-dupe exact finalKey so "diggs" + "stefon diggs" doesn't double-count
+    if (!foundPlayers.find(p => p.key === finalKey)) {
+      foundPlayers.push({
+        slot: e.slot,
+        key: finalKey,
+        name: key, // normalized key for debug
+        salary: salary || 0,
+        raw: e.name
+      });
+    }
   }
-  
-  // Calculate actual total
-  const actualTotal = foundPlayers.reduce((sum, p) => sum + p.salary, 0);
-  
-  // Only return validation if we found enough players (at least 5 for meaningful lineup)
-  if (foundPlayers.length >= 5) {
-    return {
-      players: foundPlayers,
-      actualTotal,
-      aiClaimedTotal: totalFromAI,
-      isValid: actualTotal <= 50000,
-      difference: totalFromAI ? actualTotal - totalFromAI : 0
-    };
-  }
-  
-  return null;
+
+  const actualTotal = foundPlayers.reduce((sum, p) => sum + (p.salary || 0), 0);
+
+  // For main slate and showdown, if missing players exist, we mark invalid (even if salary <= cap)
+  const rosterComplete = isShowdown ? (entries.length >= 6) : (entries.length >= 9);
+  const noMissing = missing.length === 0;
+
+  const isValid = (actualTotal <= 50000) && rosterComplete && noMissing;
+
+  return {
+    players: foundPlayers,
+    missing,
+    ambiguous,
+    actualTotal,
+    aiClaimedTotal,
+    isValid,
+    difference: aiClaimedTotal ? actualTotal - aiClaimedTotal : 0,
+    rosterSpotsFound: entries.length
+  };
 };
 
 // Salary Validator Component
 const SalaryValidator = ({ validation, accent }) => {
   if (!validation) return null;
-  
-  const { actualTotal, aiClaimedTotal, isValid, difference } = validation;
-  
+
+  const { actualTotal, aiClaimedTotal, isValid, difference, missing, rosterSpotsFound } = validation;
+
   return (
     <div style={{
       marginTop: '12px',
@@ -202,7 +300,7 @@ const SalaryValidator = ({ validation, accent }) => {
       border: `1px solid ${isValid ? 'rgba(0,255,136,0.3)' : 'rgba(255,68,68,0.3)'}`,
       borderRadius: '8px',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '16px' }}>{isValid ? '✅' : '❌'}</span>
         <span style={{ fontWeight: '700', color: isValid ? '#00ff88' : '#ff4444' }}>
           SALARY CHECK: ${actualTotal.toLocaleString()}
@@ -210,24 +308,36 @@ const SalaryValidator = ({ validation, accent }) => {
         <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>
           (Cap: $50,000)
         </span>
+        <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '12px' }}>
+          Spots parsed: {rosterSpotsFound}
+        </span>
       </div>
-      
+
       {!isValid && (
         <div style={{ color: '#ff4444', fontSize: '13px', marginTop: '4px' }}>
-          ⚠️ OVER CAP by ${(actualTotal - 50000).toLocaleString()} — This lineup is INVALID
+          {actualTotal > 50000
+            ? <>⚠️ OVER CAP by ${(actualTotal - 50000).toLocaleString()} — This lineup is INVALID</>
+            : <>⚠️ Lineup INVALID — missing or incomplete roster</>
+          }
         </div>
       )}
-      
+
+      {missing?.length > 0 && (
+        <div style={{ color: '#ffaa00', fontSize: '12px', marginTop: '6px' }}>
+          ⚠️ Missing salary matches for: {missing.map(m => `${m.slot}:${m.name}`).join(', ')}
+        </div>
+      )}
+
       {aiClaimedTotal > 0 && Math.abs(difference) > 100 && (
         <div style={{ color: '#ffaa00', fontSize: '12px', marginTop: '4px' }}>
-          ⚠️ AI claimed ${aiClaimedTotal.toLocaleString()} but actual is ${actualTotal.toLocaleString()} 
+          ⚠️ AI claimed ${aiClaimedTotal.toLocaleString()} but actual is ${actualTotal.toLocaleString()}
           (off by ${Math.abs(difference).toLocaleString()})
         </div>
       )}
-      
+
       {isValid && (
         <div style={{ color: '#00ff88', fontSize: '12px', marginTop: '4px' }}>
-          ✓ Remaining salary: ${(50000 - actualTotal).toLocaleString()}
+          ✓ Remaining salary: {(50000 - actualTotal).toLocaleString()}
         </div>
       )}
     </div>
@@ -313,9 +423,9 @@ export default function App() {
   }, [messages]);
 
   useEffect(() => {
-    const welcome = slateType === 'showdown' 
-      ? `GRIDLOCK AI locked in on **SNF Showdown** — Bears @ 49ers!\n\n**Rules:** 1 Captain (1.5x pts) + 5 FLEX | $50K cap\n**Game:** CHI @ SF | SF -3 | O/U 47.5\n\n🏆 **Chalk CPT:** CMC ($17,700) - 38.6 pt ceiling as Captain\n🎲 **Contrarian:** Caleb ($15,000) - 28.6 pt ceiling, saves $2,700\n💰 **Punts:** Kmet ($4,600), Saubert ($2,800)\n\nWinning lineup ceiling: 180-220+ pts\n\nWant a **cash** or **GPP** lineup?`
-      : `GRIDLOCK AI ready for **Week 17 Main Slate**!\n\n**Format:** Classic | $50K cap | 1QB/2RB/3WR/1TE/1FLEX/1DST\n\n🔥 **Top Stacks:**\n• JAX Stack (Lawrence + Etienne + BTJ) vs eliminated IND\n• NE Smash (Maye + Diggs + Stevenson) vs tanking Jets\n• CIN Shootout (Burrow + Chase + Higgins) - 53.5 total\n\n💎 **Value Plays:** Trevor Lawrence ($6,100), Patriots DST ($3,900)\n\nWhat do you need? **Lineup builds, player analysis, or betting picks?**`;
+    const welcome = slateType === 'showdown'
+      ? `GRIDLOCK AI locked in on **SNF Showdown** — Bears @ 49ers!\n\n**Rules:** 1 Captain (1.5x pts) + 5 FLEX | $50K cap\n**Game:** CHI @ SF | SF -3 | O/U 47.5\n\n🏆 **Chalk CPT:** CMC ($17,700)\n🎲 **Contrarian:** Caleb ($15,000)\n💰 **Punts:** Kmet ($4,600), Saubert ($2,800)\n\nWinning lineup ceiling: 180-220+ pts\n\nWant a **cash** or **GPP** lineup?`
+      : `GRIDLOCK AI ready for **Week 17 Main Slate**!\n\n**Format:** Classic | $50K cap | 1QB/2RB/3WR/1TE/1FLEX/1DST\n\n🔥 **Top Stacks:**\n• JAX Stack (Lawrence + Etienne + BTJ)\n• NE Smash (Maye + Diggs + Stevenson)\n• CIN Shootout (Burrow + Chase + Higgins)\n\nWhat do you need? **Lineup builds, player analysis, or betting picks?**`;
     setMessages([{ role: 'assistant', content: welcome }]);
     setHistory([]);
   }, [slateType]);
@@ -340,7 +450,7 @@ export default function App() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           messages: [{ role: 'user', content: `Give me a quick breakdown on ${player.name} (${player.team} ${player.pos}) for DFS this week. Include: recent performance, this week's matchup, and DFS verdict.` }],
           slateType,
           playerLookup: true
@@ -375,7 +485,7 @@ export default function App() {
     setIsTyping(false);
   };
 
-  const quickPrompts = slateType === 'showdown' 
+  const quickPrompts = slateType === 'showdown'
     ? ['Build GPP lineup', 'CMC or Caleb Captain?', 'Value FLEX plays']
     : ['Build GPP lineup', 'Best spread bets', 'Break down JAX @ IND'];
 
@@ -389,7 +499,7 @@ export default function App() {
 
   // Player Card Component
   const PlayerCard = ({ player, showSlot }) => (
-    <div 
+    <div
       onClick={() => setSelectedPlayer(player)}
       style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px',background:showSlot && player.slot==='CPT'?'rgba(255,170,0,0.05)':'rgba(255,255,255,0.03)',border:showSlot && player.slot==='CPT'?'1px solid rgba(255,170,0,0.1)':'1px solid rgba(255,255,255,0.05)',borderRadius:'10px',marginBottom:'6px',cursor:'pointer',transition:'all 0.2s'}}
       onMouseEnter={e => e.currentTarget.style.background = showSlot && player.slot==='CPT'?'rgba(255,170,0,0.1)':'rgba(255,255,255,0.08)'}
@@ -413,7 +523,7 @@ export default function App() {
 
   return (
     <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#0a0a0f 0%,#1a1a2e 50%,#0f0f1a 100%)',color:'#fff',fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif'}}>
-      
+
       {/* Player Modal */}
       {selectedPlayer && (
         <div onClick={() => setSelectedPlayer(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',backdropFilter:'blur(8px)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
@@ -475,8 +585,8 @@ export default function App() {
                 <div style={{maxWidth:'85%'}}>
                   <div style={{padding:'14px 18px',borderRadius:msg.role==='user'?'18px 18px 4px 18px':'18px 18px 18px 4px',background:msg.role==='user'?`linear-gradient(135deg,${slateType==='showdown'?'#aa7700':'#00aa55'},${slateType==='showdown'?'#886600':'#008844'})`:'rgba(255,255,255,0.05)',border:msg.role==='user'?'none':'1px solid rgba(255,255,255,0.08)',fontSize:'13px',lineHeight:'1.6'}}>{renderContent(msg.content)}</div>
                   {msg.role === 'assistant' && (
-                    <SalaryValidator 
-                      validation={validateLineup(msg.content, slateType === 'showdown')} 
+                    <SalaryValidator
+                      validation={computeLineupValidation(msg.content, slateType === 'showdown')}
                       accent={accent}
                     />
                   )}
@@ -517,20 +627,22 @@ export default function App() {
               💡 Tap any player for detailed analysis, news & stats
             </div>
             {slateType==='showdown'?(<>
-            <h2 style={{fontSize:'12px',color:'#ffaa00',letterSpacing:'2px',marginBottom:'16px'}}>SHOWDOWN PLAYER POOL</h2>
-            <h3 style={{fontSize:'11px',color:'#ffaa00',marginBottom:'10px'}}>👑 CAPTAIN OPTIONS (1.5x)</h3>
-            {SHOWDOWN_PLAYERS.filter(p=>p.slot==='CPT').map(p=>(<PlayerCard key={`c-${p.name}`} player={p} showSlot={true} />))}
-            <h3 style={{fontSize:'11px',color:'#00ff88',marginTop:'16px',marginBottom:'10px'}}>⚡ FLEX OPTIONS</h3>
-            {SHOWDOWN_PLAYERS.filter(p=>p.slot==='FLEX').map(p=>(<PlayerCard key={`f-${p.name}`} player={p} showSlot={false} />))}
-          </>):(<>
-            <h2 style={{fontSize:'12px',color:'#00ff88',letterSpacing:'2px',marginBottom:'16px'}}>DFS PLAYER POOL</h2>
-            {['QB','RB','WR','TE','DST'].map(pos=>(<div key={pos} style={{marginBottom:'20px'}}>
-              <h3 style={{fontSize:'11px',color:'rgba(255,255,255,0.4)',marginBottom:'10px',letterSpacing:'1px'}}>{pos==='QB'?'QUARTERBACKS':pos==='RB'?'RUNNING BACKS':pos==='WR'?'WIDE RECEIVERS':pos==='TE'?'TIGHT ENDS':'DEFENSE/ST'}</h3>
-              {DFS_PLAYERS.filter(p=>p.pos===pos).map(p=>(<PlayerCard key={p.name} player={p} showSlot={false} />))}
-            </div>))}
-          </>)}
-        </div>)}
+              <h2 style={{fontSize:'12px',color:'#ffaa00',letterSpacing:'2px',marginBottom:'16px'}}>SHOWDOWN PLAYER POOL</h2>
+              <h3 style={{fontSize:'11px',color:'#ffaa00',marginBottom:'10px'}}>👑 CAPTAIN OPTIONS (1.5x)</h3>
+              {SHOWDOWN_PLAYERS.filter(p=>p.slot==='CPT').map(p=>(<PlayerCard key={`c-${p.name}`} player={p} showSlot={true} />))}
+              <h3 style={{fontSize:'11px',color:'#00ff88',marginTop:'16px',marginBottom:'10px'}}>⚡ FLEX OPTIONS</h3>
+              {SHOWDOWN_PLAYERS.filter(p=>p.slot==='FLEX').map(p=>(<PlayerCard key={`f-${p.name}`} player={p} showSlot={false} />))}
+            </>):(<>
+              <h2 style={{fontSize:'12px',color:'#00ff88',letterSpacing:'2px',marginBottom:'16px'}}>DFS PLAYER POOL</h2>
+              {['QB','RB','WR','TE','DST'].map(pos=>(<div key={pos} style={{marginBottom:'20px'}}>
+                <h3 style={{fontSize:'11px',color:'rgba(255,255,255,0.4)',marginBottom:'10px',letterSpacing:'1px'}}>{pos==='QB'?'QUARTERBACKS':pos==='RB'?'RUNNING BACKS':pos==='WR'?'WIDE RECEIVERS':pos==='TE'?'TIGHT ENDS':'DEFENSE/ST'}</h3>
+                {DFS_PLAYERS.filter(p=>p.pos===pos).map(p=>(<PlayerCard key={p.name} player={p} showSlot={false} />))}
+              </div>))}
+            </>)}
+          </div>
+        )}
       </main>
+
       <style>{`::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:rgba(255,255,255,0.02)}::-webkit-scrollbar-thumb{background:${accent}33;border-radius:3px}input::placeholder{color:rgba(255,255,255,0.3)}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
