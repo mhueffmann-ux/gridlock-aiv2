@@ -1,380 +1,362 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const SUNDAY_GAMES = [
-  { id: 1, away: 'SEA', home: 'CAR', spread: 'SEA -7', total: 44.5, time: '1:00 PM ET', awayRecord: '11-4', homeRecord: '7-8', playoff: 'SEA fighting for #1 seed & NFC West.' },
-  { id: 2, away: 'TB', home: 'MIA', spread: 'TB -5.5', total: 44.5, time: '1:00 PM ET', awayRecord: '6-9', homeRecord: '6-9', playoff: 'TB must win to stay alive for NFC South.' },
-  { id: 3, away: 'ARI', home: 'CIN', spread: 'CIN -7.5', total: 53.5, time: '1:00 PM ET', awayRecord: '3-12', homeRecord: '5-10', playoff: 'HIGHEST TOTAL - Shootout expected.' },
-  { id: 4, away: 'PIT', home: 'CLE', spread: 'PIT -3', total: 34.5, time: '1:00 PM ET', awayRecord: '9-6', homeRecord: '3-12', playoff: 'PIT clinches AFC North with win.' },
-  { id: 5, away: 'NE', home: 'NYJ', spread: 'NE -13.5', total: 43, time: '1:00 PM ET', awayRecord: '12-3', homeRecord: '3-12', playoff: 'SMASH SPOT vs tanking Jets.' },
-  { id: 6, away: 'JAX', home: 'IND', spread: 'JAX -5.5', total: 48.5, time: '1:00 PM ET', awayRecord: '11-4', homeRecord: '8-7', playoff: 'JAX clinches AFC South. Trevor Lawrence ON FIRE!' },
-  { id: 7, away: 'PHI', home: 'BUF', spread: 'BUF -1.5', total: 49.5, time: '4:25 PM ET', awayRecord: '11-4', homeRecord: '11-4', playoff: 'Playoff preview - marquee matchup.' },
-];
+// ============================================================
+// API CONFIGURATION
+// ============================================================
+const ODDS_API_KEY = '79a2b30d4997c3d4399958effcd00e2e';
+const ODDS_API_BASE = 'https://api.the-odds-api.com/v4/sports';
 
-// MASTER SALARY LOOKUP - Real DraftKings prices
-const SALARY_LOOKUP = {
-  // QBs
-  'josh allen': 7000, 'drake maye': 6800, 'jalen hurts': 6600, 'joe burrow': 6500,
-  'trevor lawrence': 6100, 'sam darnold': 5900, 'jacoby brissett': 5700, 'baker mayfield': 5600,
-  'jaxson dart': 5400, 'tyler shough': 5200, 'aaron rodgers': 5000, 'bryce young': 4900,
-  'shedeur sanders': 4800, 'philip rivers': 4700, 'tyrod taylor': 4600, 'justin fields': 4600,
-  'cam ward': 4500, 'geno smith': 4400, 'quinn ewers': 4300, 'anthony richardson': 4200,
-  'riley leonard': 4200, 'brady cook': 4100,
-  
-  // RBs
-  "de'von achane": 8500, 'devon achane': 8500, 'achane': 8500,
-  'james cook': 8000, 'james cook iii': 8000,
-  'jonathan taylor': 7800, 'saquon barkley': 7600, 'chase brown': 7400,
-  'travis etienne': 7100, 'travis etienne jr': 7100, 'travis etienne jr.': 7100,
-  'jaylen warren': 6600, 'treveyon henderson': 6400, 'bucky irving': 6200,
-  'ashton jeanty': 6100, 'rico dowdle': 6000, 'rhamondre stevenson': 5900,
-  'kenneth walker': 5800, 'kenneth walker iii': 5800, 'breece hall': 5700,
-  'kenneth gainwell': 5600, 'alvin kamara': 5500, 'tony pollard': 5500,
-  'tyrone tracy': 5400, 'tyrone tracy jr': 5400, 'zach charbonnet': 5300,
-  'michael carter': 5200, 'dylan sampson': 5100, 'tyjae spears': 5000,
-  'devin singletary': 4900, 'audric estime': 4900, 'rachaad white': 4700,
-  'emari demercado': 4700, 'tank bigsby': 4600, 'bhayshul tuten': 4600,
-  'trayveon williams': 4600, 'chuba hubbard': 4500, 'jaylen wright': 4500,
-  'ty johnson': 4500, 'samaje perine': 4400, 'evan hull': 4400,
-  'd\'ernest johnson': 4300, 'tyler goodson': 4300, 'sean tucker': 4200,
-  'isaiah davis': 4200, 'raheem mostert': 4100, 'lequint allen': 4100,
-  
-  // WRs
-  'jaxon smith-njigba': 8600, 'jsn': 8600,
-  "ja'marr chase": 8300, 'jamarr chase': 8300, 'chase': 8300,
-  'chris olave': 7200, 'a.j. brown': 7000, 'aj brown': 7000,
-  'mike evans': 6500, 'michael wilson': 6400, 'tee higgins': 6300,
-  'jaylen waddle': 6100, 'devonta smith': 6000, 'tetairoa mcmillan': 5900,
-  'stefon diggs': 5800, 'diggs': 5800, "wan'dale robinson": 5700,
-  'dk metcalf': 5600, 'emeka egbuka': 5500, 'marvin harrison jr': 5400,
-  'marvin harrison': 5400, 'mhj': 5400, 'jakobi meyers': 5300,
-  'brian thomas jr': 5200, 'brian thomas': 5200, 'btj': 5200,
-  'khalil shakir': 5100, 'chris godwin': 5000, 'michael pittman': 4900,
-  'michael pittman jr': 4900, 'parker washington': 4800, 'alec pierce': 4700,
-  'kayshon boutte': 4600, 'boutte': 4600, 'adonai mitchell': 4500,
-  'jalen coker': 4400, 'rashid shaheed': 4300, 'josh downs': 4200,
-  'chimere dike': 4100, 'jerry jeudy': 4000, 'mack hollins': 4000,
-  'darius slayton': 3900, 'malik washington': 3900, 'tre tucker': 3800,
-  'cooper kupp': 3800, 'john metchie': 3700, 'jack bech': 3700,
-  'andrei iosivas': 3600, 'elic ayomanor': 3600, 'demario douglas': 3500,
-  'jalen mcmillan': 3500, 'mason tipton': 3500, 'xavier legette': 3400,
-  'adam thielen': 3400, 'tyler lockett': 3400, 'keon coleman': 3300,
-  'kyle williams': 3300, 'tim patrick': 3300, 'joshua palmer': 3200,
-  'calvin austin': 3200, 'kevin austin': 3200, 'cedric tillman': 3100,
-  'gabe davis': 3100, 'isaiah williams': 3100, 'garrett wilson': 3000,
-  'tyreek hill': 3000, 'malik nabers': 3000, 'calvin ridley': 3000,
-  
-  // TEs
-  'trey mcbride': 7500, 'mcbride': 7500, 'brock bowers': 5500,
-  'harold fannin': 5000, 'harold fannin jr': 5000,
-  'hunter henry': 4500, 'tyler warren': 4400, 'dallas goedert': 4300,
-  'juwan johnson': 4200, 'dalton kincaid': 4100, 'brenton strange': 4000,
-  'darren waller': 3800, 'aj barner': 3600, 'mike gesicki': 3500,
-  'theo johnson': 3400, 'chig okonkwo': 3300, 'cade otton': 3200,
-  'dawson knox': 3100, 'david njoku': 3000, 'mason taylor': 3000,
-  'noah fant': 2900, 'pat freiermuth': 2900,
-  
-  // DSTs
-  'patriots': 3900, 'patriots dst': 3900, 'new england': 3900, 'ne dst': 3900,
-  'seahawks': 3700, 'seahawks dst': 3700, 'seattle': 3700,
-  'saints': 3500, 'saints dst': 3500, 'new orleans': 3500,
-  'jaguars': 3400, 'jaguars dst': 3400, 'jacksonville': 3400, 'jax dst': 3400,
-  'steelers': 3300, 'steelers dst': 3300, 'pittsburgh': 3300,
-  'bengals': 3200, 'bengals dst': 3200, 'cincinnati': 3200,
-  'buccaneers': 3100, 'buccaneers dst': 3100, 'tampa bay': 3100, 'bucs': 3100,
-  'bills': 3000, 'bills dst': 3000, 'buffalo': 3000,
-  'giants': 2900, 'giants dst': 2900, 'new york giants': 2900,
-  'titans': 2800, 'titans dst': 2800, 'tennessee': 2800,
-  'raiders': 2700, 'raiders dst': 2700, 'las vegas': 2700,
-  'eagles': 2600, 'eagles dst': 2600, 'philadelphia': 2600,
-  'browns': 2500, 'browns dst': 2500, 'cleveland': 2500,
-  'colts': 2400, 'colts dst': 2400, 'indianapolis': 2400,
-  'cardinals': 2300, 'cardinals dst': 2300, 'arizona': 2300,
-  'dolphins': 2200, 'dolphins dst': 2200, 'miami': 2200,
-  'panthers': 2100, 'panthers dst': 2100, 'carolina': 2100,
-  'jets': 2000, 'jets dst': 2000, 'new york jets': 2000,
-  
-  // SHOWDOWN - CHI @ SF (FLEX salaries)
-  'christian mccaffrey': 11800, 'cmc': 11800, 'mccaffrey': 11800,
-  'brock purdy': 10600, 'purdy': 10600,
-  'caleb williams': 10000, 'caleb': 10000,
-  'george kittle': 9000, 'kittle': 9000,
-  'rome odunze': 8800, 'odunze': 8800,
-  'jauan jennings': 8600, 'jennings': 8600,
-  'dj moore': 8400, 'd.j. moore': 8400,
-  "d'andre swift": 8000, 'dandre swift': 8000, 'swift': 8000,
-  'deebo samuel': 7200, 'deebo': 7200,
-  'ricky pearsall': 5800, 'pearsall': 5800,
-  'roschon johnson': 5200,
-  'isaac guerendo': 4800, 'guerendo': 4800,
-  'cole kmet': 4600, 'kmet': 4600,
-  'bears dst': 3400, 'bears': 3400, 'chicago bears': 3400,
-  '49ers dst': 3200, '49ers': 3200, 'san francisco': 3200, 'sf dst': 3200,
-  'eric saubert': 2800, 'saubert': 2800,
-  
-  // SHOWDOWN - CPT salaries (1.5x)
-  'christian mccaffrey cpt': 17700, 'cmc cpt': 17700,
-  'brock purdy cpt': 15900, 'purdy cpt': 15900,
-  'caleb williams cpt': 15000, 'caleb cpt': 15000,
-  'george kittle cpt': 13500, 'kittle cpt': 13500,
-  'rome odunze cpt': 13200, 'odunze cpt': 13200,
-  'jauan jennings cpt': 12900, 'jennings cpt': 12900,
-  'dj moore cpt': 12600, 'd.j. moore cpt': 12600,
-  "d'andre swift cpt": 12000, 'swift cpt': 12000,
-  'deebo samuel cpt': 10800, 'deebo cpt': 10800,
-  'ricky pearsall cpt': 8700, 'pearsall cpt': 8700,
-  'roschon johnson cpt': 7800,
-  'isaac guerendo cpt': 7200, 'guerendo cpt': 7200,
-  'cole kmet cpt': 6900, 'kmet cpt': 6900,
-  'bears dst cpt': 5100, 'bears cpt': 5100,
-  '49ers dst cpt': 4800, '49ers cpt': 4800,
-  'eric saubert cpt': 4200, 'saubert cpt': 4200,
+// Sports configuration
+const SPORTS = {
+  nba: { key: 'basketball_nba', name: 'NBA', icon: '🏀', accent: '#f97316' },
+  nfl: { key: 'americanfootball_nfl', name: 'NFL', icon: '🏈', accent: '#00ff88' },
 };
 
-// Function to validate lineup from AI response
-const validateLineup = (content, isShowdown = false) => {
-  if (!content) return null;
-  
-  // Check if this looks like a lineup (has salary indicators)
-  const hasSalary = /\$[\d,]+/.test(content) || /salary/i.test(content);
-  const hasLineup = /lineup|optimal|roster/i.test(content);
-  if (!hasSalary && !hasLineup) return null;
-  
-  const lines = content.toLowerCase();
-  let foundPlayers = [];
-  let totalFromAI = 0;
-  
-  // Try to extract AI's claimed total
-  const totalMatch = content.match(/total[:\s]*\$?([\d,]+)/i);
-  if (totalMatch) {
-    totalFromAI = parseInt(totalMatch[1].replace(/,/g, ''));
+// Prop markets to fetch
+const PROP_MARKETS = [
+  'player_points',
+  'player_rebounds', 
+  'player_assists',
+  'player_threes',
+  'player_points_rebounds_assists',
+  'player_points_rebounds',
+  'player_points_assists',
+];
+
+// ============================================================
+// API FUNCTIONS
+// ============================================================
+
+// Fetch game odds from API
+const fetchGameOdds = async (sportKey) => {
+  try {
+    const response = await fetch(
+      `${ODDS_API_BASE}/${sportKey}/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=spreads,h2h,totals&oddsFormat=american`
+    );
+    if (!response.ok) throw new Error('Failed to fetch odds');
+    const data = await response.json();
+    
+    // Check remaining requests from headers
+    const remaining = response.headers.get('x-requests-remaining');
+    console.log(`API Requests Remaining: ${remaining}`);
+    
+    return { games: data, remaining: parseInt(remaining) || 0 };
+  } catch (error) {
+    console.error('Error fetching odds:', error);
+    return { games: [], remaining: 0 };
   }
-  
-  // Find all players mentioned with salaries
-  for (const [playerKey, salary] of Object.entries(SALARY_LOOKUP)) {
-    // Check if player name appears in content
-    const playerRegex = new RegExp(playerKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    if (playerRegex.test(lines)) {
-      // Check if it's a CPT mention for showdown
-      const isCPT = isShowdown && /cpt|captain/i.test(content) && 
-                    new RegExp(playerKey + '.*?(cpt|captain)|(?:cpt|captain).*?' + playerKey, 'i').test(lines);
-      
-      // Avoid duplicates
-      const existingPlayer = foundPlayers.find(p => p.name === playerKey);
-      if (!existingPlayer) {
-        // For showdown CPT, use CPT salary if available
-        let finalSalary = salary;
-        if (isCPT && SALARY_LOOKUP[playerKey + ' cpt']) {
-          finalSalary = SALARY_LOOKUP[playerKey + ' cpt'];
-        }
-        foundPlayers.push({ name: playerKey, salary: finalSalary, isCPT });
-      }
+};
+
+// Fetch player props for a specific event
+const fetchPlayerProps = async (sportKey, eventId) => {
+  try {
+    const marketsParam = PROP_MARKETS.join(',');
+    const response = await fetch(
+      `${ODDS_API_BASE}/${sportKey}/events/${eventId}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=${marketsParam}&oddsFormat=american`
+    );
+    
+    if (!response.ok) {
+      // Props might not be available on free tier
+      console.log('Props not available for this event or tier');
+      return null;
     }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching props:', error);
+    return null;
   }
-  
-  // Calculate actual total
-  const actualTotal = foundPlayers.reduce((sum, p) => sum + p.salary, 0);
-  
-  // Only return validation if we found enough players (at least 5 for meaningful lineup)
-  if (foundPlayers.length >= 5) {
-    return {
-      players: foundPlayers,
-      actualTotal,
-      aiClaimedTotal: totalFromAI,
-      isValid: actualTotal <= 50000,
-      difference: totalFromAI ? actualTotal - totalFromAI : 0,
-      overBy: actualTotal > 50000 ? actualTotal - 50000 : 0
-    };
-  }
-  
-  return null;
 };
 
-// Generate correction prompt for invalid lineups
-const generateCorrectionPrompt = (validation, originalContent, isShowdown) => {
-  const { players, actualTotal, overBy } = validation;
-  
-  // Format player list
-  const playerList = players.map(p => {
-    const displayName = p.name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    return `${displayName} ($${p.salary.toLocaleString()})`;
-  }).join('\n');
-  
-  if (isShowdown) {
-    return `You built a Showdown lineup, but it is OVER the $50,000 cap.
-Current lineup (do not keep these players if you need to swap):
-${playerList}
-Actual total: $${actualTotal.toLocaleString()}
-You must reduce salary by AT LEAST: $${overBy.toLocaleString()}
-RULES:
-- Output EXACTLY ONE corrected lineup in the same ---LINEUP--- format.
-- Do NOT mention any other players by name outside the lineup block.
-- Keep roster slots valid: CPT + 5 FLEX
-- FLEX can be any position.
-- Prefer the fewest swaps possible. Use only players from the provided player pool and their exact salaries.`;
-  }
-  
-  return `You built a DraftKings Classic lineup, but it is OVER the $50,000 cap.
-Current lineup (do not keep these players if you need to swap):
-${playerList}
-Actual total: $${actualTotal.toLocaleString()}
-You must reduce salary by AT LEAST: $${overBy.toLocaleString()}
-RULES:
-- Output EXACTLY ONE corrected lineup in the same ---LINEUP--- format.
-- Do NOT mention any other players by name outside the lineup block.
-- Keep roster slots valid: QB/RB/RB/WR/WR/WR/TE/FLEX/DST
-- FLEX must be RB/WR/TE only.
-- Prefer the fewest swaps possible. Use only players from the provided player pool and their exact salaries.`;
+// ============================================================
+// DATA PARSING
+// ============================================================
+
+// Parse game odds into cleaner format
+const parseGameOdds = (game) => {
+  const bookmaker = game.bookmakers?.[0];
+  if (!bookmaker) return null;
+
+  let spread = null, ml = null, total = null;
+
+  bookmaker.markets.forEach(market => {
+    if (market.key === 'spreads') {
+      const homeSpread = market.outcomes.find(o => o.name === game.home_team);
+      const awaySpread = market.outcomes.find(o => o.name === game.away_team);
+      spread = {
+        home: { team: game.home_team, line: homeSpread?.point, odds: homeSpread?.price },
+        away: { team: game.away_team, line: awaySpread?.point, odds: awaySpread?.price },
+      };
+    }
+    if (market.key === 'h2h') {
+      const homeMl = market.outcomes.find(o => o.name === game.home_team);
+      const awayMl = market.outcomes.find(o => o.name === game.away_team);
+      ml = {
+        home: { team: game.home_team, odds: homeMl?.price },
+        away: { team: game.away_team, odds: awayMl?.price },
+      };
+    }
+    if (market.key === 'totals') {
+      const over = market.outcomes.find(o => o.name === 'Over');
+      const under = market.outcomes.find(o => o.name === 'Under');
+      total = { line: over?.point, over: over?.price, under: under?.price };
+    }
+  });
+
+  return {
+    id: game.id,
+    homeTeam: game.home_team,
+    awayTeam: game.away_team,
+    startTime: new Date(game.commence_time),
+    bookmaker: bookmaker.title,
+    spread, ml, total,
+  };
 };
 
-// Salary Validator Component
-const SalaryValidator = ({ validation, accent, isCorreecting }) => {
-  if (!validation) return null;
+// Parse player props from API response
+const parsePlayerProps = (propsData) => {
+  if (!propsData?.bookmakers?.length) return [];
   
-  const { actualTotal, aiClaimedTotal, isValid, difference, players } = validation;
+  const props = [];
+  const bookmaker = propsData.bookmakers[0];
   
-  return (
-    <div style={{
-      marginTop: '12px',
-      padding: '12px 16px',
-      background: isValid ? 'rgba(0,255,136,0.1)' : 'rgba(255,68,68,0.1)',
-      border: `1px solid ${isValid ? 'rgba(0,255,136,0.3)' : 'rgba(255,68,68,0.3)'}`,
-      borderRadius: '8px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-        <span style={{ fontSize: '16px' }}>{isValid ? '✅' : '❌'}</span>
-        <span style={{ fontWeight: '700', color: isValid ? '#00ff88' : '#ff4444' }}>
-          SALARY CHECK: ${actualTotal.toLocaleString()}
-        </span>
-        <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>
-          (Cap: $50,000)
-        </span>
-        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>
-          Spots parsed: {players?.length || 0}
-        </span>
-      </div>
-      
-      {!isValid && (
-        <div style={{ color: '#ff4444', fontSize: '13px', marginTop: '4px' }}>
-          ⚠️ OVER CAP by ${(actualTotal - 50000).toLocaleString()} — This lineup is INVALID
-        </div>
-      )}
-      
-      {isCorreecting && !isValid && (
-        <div style={{ color: '#ffaa00', fontSize: '12px', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{width:'10px',height:'10px',border:'2px solid #ffaa00',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 1s linear infinite',display:'inline-block'}}></span>
-          Auto-correcting lineup...
-        </div>
-      )}
-      
-      {aiClaimedTotal > 0 && Math.abs(difference) > 100 && (
-        <div style={{ color: '#ffaa00', fontSize: '12px', marginTop: '4px' }}>
-          ⚠️ AI claimed ${aiClaimedTotal.toLocaleString()} but actual is ${actualTotal.toLocaleString()} 
-          (off by ${Math.abs(difference).toLocaleString()})
-        </div>
-      )}
-      
-      {isValid && (
-        <div style={{ color: '#00ff88', fontSize: '12px', marginTop: '4px' }}>
-          ✓ Remaining salary: ${(50000 - actualTotal).toLocaleString()}
-        </div>
-      )}
-    </div>
-  );
+  bookmaker.markets.forEach(market => {
+    const marketName = market.key.replace('player_', '').replace(/_/g, ' ').toUpperCase();
+    
+    market.outcomes.forEach(outcome => {
+      props.push({
+        player: outcome.description,
+        market: marketName,
+        type: outcome.name, // Over/Under
+        line: outcome.point,
+        odds: outcome.price,
+        book: bookmaker.title,
+      });
+    });
+  });
+  
+  // Group by player
+  const grouped = {};
+  props.forEach(prop => {
+    const key = `${prop.player}-${prop.market}`;
+    if (!grouped[key]) {
+      grouped[key] = { player: prop.player, market: prop.market, over: null, under: null, line: prop.line };
+    }
+    if (prop.type === 'Over') grouped[key].over = prop.odds;
+    if (prop.type === 'Under') grouped[key].under = prop.odds;
+  });
+  
+  return Object.values(grouped);
 };
 
-const DFS_PLAYERS = [
-  { name: 'Josh Allen', team: 'BUF', pos: 'QB', salary: 7000, opp: 'vs PHI', avg: 24.16, notes: 'Highest ceiling QB - 35pt upside' },
-  { name: 'Drake Maye', team: 'NE', pos: 'QB', salary: 6800, opp: '@ NYJ', avg: 21.18, notes: 'SMASH - Jets tanking' },
-  { name: 'Jalen Hurts', team: 'PHI', pos: 'QB', salary: 6600, opp: '@ BUF', avg: 20.21, notes: 'Rushing upside' },
-  { name: 'Joe Burrow', team: 'CIN', pos: 'QB', salary: 6500, opp: 'vs ARI', avg: 16.65, notes: '53.5 total shootout' },
-  { name: 'Trevor Lawrence', team: 'JAX', pos: 'QB', salary: 6100, opp: '@ IND', avg: 20.58, notes: 'SMASH - 10 TDs last 2 games' },
-  { name: "De'Von Achane", team: 'MIA', pos: 'RB', salary: 8500, opp: 'vs TB', avg: 21.37, notes: '28-pt ceiling, explosive' },
-  { name: 'James Cook III', team: 'BUF', pos: 'RB', salary: 8000, opp: 'vs PHI', avg: 21.47, notes: 'Goal-line work, TD upside' },
-  { name: 'Jonathan Taylor', team: 'IND', pos: 'RB', salary: 7800, opp: 'vs JAX', avg: 23.67, notes: 'Elite talent, tough matchup' },
-  { name: 'Saquon Barkley', team: 'PHI', pos: 'RB', salary: 7600, opp: '@ BUF', avg: 15.70, notes: 'Volume play' },
-  { name: 'Chase Brown', team: 'CIN', pos: 'RB', salary: 7400, opp: 'vs ARI', avg: 16.03, notes: 'Shootout game stack' },
-  { name: 'Travis Etienne Jr.', team: 'JAX', pos: 'RB', salary: 7100, opp: '@ IND', avg: 16.26, notes: 'Stack with Lawrence' },
-  { name: 'Rhamondre Stevenson', team: 'NE', pos: 'RB', salary: 5900, opp: '@ NYJ', avg: 9.94, notes: 'Smash spot VALUE' },
-  { name: 'Jaxon Smith-Njigba', team: 'SEA', pos: 'WR', salary: 8600, opp: '@ CAR', avg: 23.82, notes: 'CHALK - target hog' },
-  { name: "Ja'Marr Chase", team: 'CIN', pos: 'WR', salary: 8300, opp: 'vs ARI', avg: 20.50, notes: 'Smash spot, Burrow stack' },
-  { name: 'A.J. Brown', team: 'PHI', pos: 'WR', salary: 7000, opp: '@ BUF', avg: 15.96, notes: 'Hurts stack option' },
-  { name: 'Tee Higgins', team: 'CIN', pos: 'WR', salary: 6300, opp: 'vs ARI', avg: 14.31, notes: 'Burrow stack WR2' },
-  { name: 'Stefon Diggs', team: 'NE', pos: 'WR', salary: 5800, opp: '@ NYJ', avg: 12.86, notes: 'SMASH vs Jets secondary' },
-  { name: 'Marvin Harrison Jr.', team: 'ARI', pos: 'WR', salary: 5400, opp: '@ CIN', avg: 11.62, notes: 'Bounce back spot' },
-  { name: 'Brian Thomas Jr.', team: 'JAX', pos: 'WR', salary: 5200, opp: '@ IND', avg: 10.25, notes: 'VALUE - Lawrence stack' },
-  { name: 'Khalil Shakir', team: 'BUF', pos: 'WR', salary: 5100, opp: 'vs PHI', avg: 10.73, notes: 'Safe floor, Allen stack' },
-  { name: 'Kayshon Boutte', team: 'NE', pos: 'WR', salary: 4600, opp: '@ NYJ', avg: 9.44, notes: 'Smash spot value' },
-  { name: 'Trey McBride', team: 'ARI', pos: 'TE', salary: 7500, opp: '@ CIN', avg: 19.19, notes: 'ELITE - 10+ targets weekly' },
-  { name: 'Brock Bowers', team: 'LV', pos: 'TE', salary: 5500, opp: 'vs NYG', avg: 15.18, notes: 'Rookie stud' },
-  { name: 'Hunter Henry', team: 'NE', pos: 'TE', salary: 4500, opp: '@ NYJ', avg: 10.49, notes: 'SMASH spot value' },
-  { name: 'Dallas Goedert', team: 'PHI', pos: 'TE', salary: 4300, opp: '@ BUF', avg: 12.74, notes: 'Hurts stack' },
-  { name: 'Dalton Kincaid', team: 'BUF', pos: 'TE', salary: 4100, opp: 'vs PHI', avg: 11.30, notes: 'Allen stack option' },
-  { name: 'Patriots DST', team: 'NE', pos: 'DST', salary: 3900, opp: '@ NYJ', avg: 7.20, notes: 'SMASH - Jets tanking' },
-  { name: 'Seahawks DST', team: 'SEA', pos: 'DST', salary: 3700, opp: '@ CAR', avg: 10.47, notes: 'Good matchup' },
-  { name: 'Jaguars DST', team: 'JAX', pos: 'DST', salary: 3400, opp: '@ IND', avg: 8.27, notes: 'Colts eliminated' },
-  { name: 'Steelers DST', team: 'PIT', pos: 'DST', salary: 3300, opp: '@ CLE', avg: 7.67, notes: 'Browns bad' },
-  { name: 'Bills DST', team: 'BUF', pos: 'DST', salary: 3000, opp: 'vs PHI', avg: 6.67, notes: 'Risky ceiling' },
-  { name: 'Eagles DST', team: 'PHI', pos: 'DST', salary: 2600, opp: '@ BUF', avg: 7.87, notes: 'Cheap punt' },
-];
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
 
-const SHOWDOWN_PLAYERS = [
-  { name: 'Christian McCaffrey', team: 'SF', pos: 'RB', slot: 'CPT', salary: 17700, avg: 25.72, notes: 'CHALK - Bears 32nd run D' },
-  { name: 'Brock Purdy', team: 'SF', pos: 'QB', slot: 'CPT', salary: 15900, avg: 21.18, notes: 'Correlates with CMC' },
-  { name: 'Caleb Williams', team: 'CHI', pos: 'QB', slot: 'CPT', salary: 15000, avg: 19.07, notes: 'CONTRARIAN - Upset narrative' },
-  { name: 'George Kittle', team: 'SF', pos: 'TE', slot: 'CPT', salary: 13500, avg: 15.66, notes: 'Red zone monster' },
-  { name: 'Rome Odunze', team: 'CHI', pos: 'WR', slot: 'CPT', salary: 13200, avg: 12.68, notes: 'Caleb favorite target' },
-  { name: 'Jauan Jennings', team: 'SF', pos: 'WR', slot: 'CPT', salary: 12900, avg: 11.89, notes: 'Target share up' },
-  { name: 'DJ Moore', team: 'CHI', pos: 'WR', slot: 'CPT', salary: 12600, avg: 11.16, notes: 'Volume play' },
-  { name: "D'Andre Swift", team: 'CHI', pos: 'RB', slot: 'CPT', salary: 12000, avg: 15.14, notes: 'Receiving + rushing' },
-  { name: 'Christian McCaffrey', team: 'SF', pos: 'RB', slot: 'FLEX', salary: 11800, avg: 25.72, notes: 'CHALK - Bears 32nd run D' },
-  { name: 'Brock Purdy', team: 'SF', pos: 'QB', slot: 'FLEX', salary: 10600, avg: 21.18, notes: 'Elite efficiency' },
-  { name: 'Caleb Williams', team: 'CHI', pos: 'QB', slot: 'FLEX', salary: 10000, avg: 19.07, notes: 'Rushing upside' },
-  { name: 'George Kittle', team: 'SF', pos: 'TE', slot: 'FLEX', salary: 9000, avg: 15.66, notes: 'Red zone target' },
-  { name: 'Rome Odunze', team: 'CHI', pos: 'WR', slot: 'FLEX', salary: 8800, avg: 12.68, notes: 'WR1 role' },
-  { name: 'Jauan Jennings', team: 'SF', pos: 'WR', slot: 'FLEX', salary: 8600, avg: 11.89, notes: 'Target share up' },
-  { name: 'DJ Moore', team: 'CHI', pos: 'WR', slot: 'FLEX', salary: 8400, avg: 11.16, notes: 'Volume play' },
-  { name: "D'Andre Swift", team: 'CHI', pos: 'RB', slot: 'FLEX', salary: 8000, avg: 15.14, notes: 'Dual-threat' },
-  { name: 'Deebo Samuel', team: 'SF', pos: 'WR', slot: 'FLEX', salary: 7200, avg: 10.45, notes: 'Gadget plays' },
-  { name: 'Ricky Pearsall', team: 'SF', pos: 'WR', slot: 'FLEX', salary: 5800, avg: 8.33, notes: 'Deep threat' },
-  { name: 'Roschon Johnson', team: 'CHI', pos: 'RB', slot: 'FLEX', salary: 5200, avg: 6.41, notes: 'Swift backup' },
-  { name: 'Cole Kmet', team: 'CHI', pos: 'TE', slot: 'FLEX', salary: 4600, avg: 8.69, notes: 'VALUE - Cheap TE' },
-  { name: 'Isaac Guerendo', team: 'SF', pos: 'RB', slot: 'FLEX', salary: 4800, avg: 5.88, notes: 'CMC backup' },
-  { name: 'Bears DST', team: 'CHI', pos: 'DST', slot: 'FLEX', salary: 3400, avg: 6.93, notes: 'Fade SF narrative' },
-  { name: '49ers DST', team: 'SF', pos: 'DST', slot: 'FLEX', salary: 3200, avg: 5.87, notes: 'Home favorite' },
-  { name: 'Eric Saubert', team: 'SF', pos: 'TE', slot: 'FLEX', salary: 2800, avg: 3.22, notes: 'MIN SALARY PUNT' },
-];
+const formatOdds = (odds) => {
+  if (!odds) return '-';
+  return odds > 0 ? `+${odds}` : `${odds}`;
+};
+
+const formatSpread = (line) => {
+  if (!line && line !== 0) return '-';
+  return line > 0 ? `+${line}` : `${line}`;
+};
+
+const formatTime = (date) => {
+  return date.toLocaleString('en-US', { 
+    weekday: 'short', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true 
+  });
+};
+
+const getTimeUntil = (date) => {
+  const now = new Date();
+  const diff = date - now;
+  if (diff < 0) return 'LIVE';
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+  return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+};
+
+// ============================================================
+// MAIN APP COMPONENT
+// ============================================================
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('chat');
-  const [slateType, setSlateType] = useState('main');
+  const [activeSport, setActiveSport] = useState('nba');
+  const [activeTab, setActiveTab] = useState('games');
+  const [games, setGames] = useState([]);
+  const [props, setProps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [propsLoading, setPropsLoading] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [apiRemaining, setApiRemaining] = useState(null);
+  const [error, setError] = useState(null);
+  const [propsError, setPropsError] = useState(null);
+  const [selectedGame, setSelectedGame] = useState(null);
+  const [myPicks, setMyPicks] = useState([]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [history, setHistory] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [playerInfo, setPlayerInfo] = useState(null);
-  const [loadingPlayer, setLoadingPlayer] = useState(false);
-  const [isCorreecting, setIsCorreecting] = useState(false);
   const messagesEndRef = useRef(null);
+
+  const sport = SPORTS[activeSport];
+  const accent = sport.accent;
+
+  // ============================================================
+  // DATA LOADING
+  // ============================================================
+
+  useEffect(() => {
+    loadGames();
+  }, [activeSport]);
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(loadGames, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [activeSport]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
-    const welcome = slateType === 'showdown' 
-      ? `GRIDLOCK AI locked in on **SNF Showdown** — Bears @ 49ers!\n\n**Rules:** 1 Captain (1.5x pts) + 5 FLEX | $50K cap\n**Game:** CHI @ SF | SF -3 | O/U 47.5\n\n🏆 **Chalk CPT:** CMC ($17,700) - 38.6 pt ceiling as Captain\n🎲 **Contrarian:** Caleb ($15,000) - 28.6 pt ceiling, saves $2,700\n💰 **Punts:** Kmet ($4,600), Saubert ($2,800)\n\nWinning lineup ceiling: 180-220+ pts\n\nWant a **cash** or **GPP** lineup?`
-      : `GRIDLOCK AI ready for **Week 17 Main Slate**!\n\n**Format:** Classic | $50K cap | 1QB/2RB/3WR/1TE/1FLEX/1DST\n\n🔥 **Top Stacks:**\n• JAX Stack (Lawrence + Etienne + BTJ) vs eliminated IND\n• NE Smash (Maye + Diggs + Stevenson) vs tanking Jets\n• CIN Shootout (Burrow + Chase + Higgins) - 53.5 total\n\n💎 **Value Plays:** Trevor Lawrence ($6,100), Patriots DST ($3,900)\n\nWhat do you need? **Lineup builds, player analysis, or betting picks?**`;
+    const welcome = `**GRIDLOCK AI** — Live ${sport.name} Betting Intelligence ${sport.icon}
+
+📊 **Live odds** from The-Odds-API (refreshes every 5 min)
+🎯 **Player props** available per game
+📝 **Pick tracking** with W/L record
+
+**Tabs:**
+• **Games** — Spreads, MLs, Totals (click to add picks)
+• **Props** — Player props for selected game
+• **Picks** — Your bet slip
+• **Chat** — Ask me anything
+
+Select a game to view player props!`;
     setMessages([{ role: 'assistant', content: welcome }]);
-    setHistory([]);
-  }, [slateType]);
+  }, [activeSport]);
+
+  const loadGames = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { games: data, remaining } = await fetchGameOdds(sport.key);
+      const parsed = data.map(parseGameOdds).filter(Boolean);
+      parsed.sort((a, b) => a.startTime - b.startTime);
+      setGames(parsed);
+      setApiRemaining(remaining);
+      setLastUpdate(new Date());
+      
+      // Auto-select first game for props
+      if (parsed.length > 0 && !selectedGame) {
+        setSelectedGame(parsed[0]);
+      }
+    } catch (err) {
+      setError('Failed to load odds. Check API key or try again.');
+    }
+    setLoading(false);
+  };
+
+  const loadProps = async (game) => {
+    if (!game) return;
+    setPropsLoading(true);
+    setPropsError(null);
+    
+    try {
+      const propsData = await fetchPlayerProps(sport.key, game.id);
+      if (propsData) {
+        const parsed = parsePlayerProps(propsData);
+        setProps(parsed);
+        if (parsed.length === 0) {
+          setPropsError('No props available for this game yet.');
+        }
+      } else {
+        setPropsError('Player props require a paid API tier. Try the Props tab for manual entry.');
+        setProps([]);
+      }
+    } catch (err) {
+      setPropsError('Failed to load props.');
+      setProps([]);
+    }
+    setPropsLoading(false);
+  };
+
+  useEffect(() => {
+    if (selectedGame) {
+      loadProps(selectedGame);
+    }
+  }, [selectedGame]);
+
+  // ============================================================
+  // PICK MANAGEMENT
+  // ============================================================
+
+  const addPick = (game, pickType, pick) => {
+    const newPick = {
+      id: Date.now(),
+      sport: activeSport,
+      game: `${game.awayTeam} @ ${game.homeTeam}`,
+      gameTime: game.startTime,
+      pickType,
+      pick,
+      odds: pick.odds,
+      result: 'PENDING',
+      addedAt: new Date(),
+    };
+    setMyPicks(prev => [newPick, ...prev]);
+  };
+
+  const addPropPick = (prop) => {
+    if (!selectedGame) return;
+    const newPick = {
+      id: Date.now(),
+      sport: activeSport,
+      game: `${selectedGame.awayTeam} @ ${selectedGame.homeTeam}`,
+      gameTime: selectedGame.startTime,
+      pickType: 'Prop',
+      pick: { 
+        player: prop.player, 
+        market: prop.market, 
+        side: 'Over',
+        line: prop.line,
+        odds: prop.over 
+      },
+      odds: prop.over,
+      result: 'PENDING',
+      addedAt: new Date(),
+    };
+    setMyPicks(prev => [newPick, ...prev]);
+  };
+
+  const removePick = (pickId) => {
+    setMyPicks(prev => prev.filter(p => p.id !== pickId));
+  };
+
+  const updatePickResult = (pickId, result) => {
+    setMyPicks(prev => prev.map(p => p.id === pickId ? { ...p, result } : p));
+  };
+
+  // ============================================================
+  // CHAT
+  // ============================================================
 
   const callAPI = async (msgs) => {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: msgs, slateType })
+        body: JSON.stringify({ 
+          messages: msgs, 
+          mode: 'betting',
+          sport: activeSport,
+          games: games.slice(0, 10),
+          props: props.slice(0, 20)
+        })
       });
       const data = await res.json();
       return data.response || 'Error getting response';
@@ -383,244 +365,375 @@ export default function App() {
     }
   };
 
-  const fetchPlayerInfo = async (player) => {
-    setLoadingPlayer(true);
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          messages: [{ role: 'user', content: `Give me a quick breakdown on ${player.name} (${player.team} ${player.pos}) for DFS this week. Include: recent performance, this week's matchup, and DFS verdict.` }],
-          slateType,
-          playerLookup: true
-        })
-      });
-      const data = await res.json();
-      setPlayerInfo(data.response || 'Could not fetch player info');
-    } catch (e) {
-      setPlayerInfo('Error fetching player info');
-    }
-    setLoadingPlayer(false);
-  };
-
-  useEffect(() => {
-    if (selectedPlayer) {
-      fetchPlayerInfo(selectedPlayer);
-    } else {
-      setPlayerInfo(null);
-    }
-  }, [selectedPlayer]);
-
   const send = async () => {
     if (!input.trim()) return;
-    const newHistory = [...history, { role: 'user', content: input }];
     setMessages(prev => [...prev, { role: 'user', content: input }]);
-    setHistory(newHistory);
     setInput('');
     setIsTyping(true);
-    
-    const response = await callAPI(newHistory);
+    const response = await callAPI([...messages, { role: 'user', content: input }]);
     setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    
-    // Check if lineup is invalid and needs auto-correction
-    const validation = validateLineup(response, slateType === 'showdown');
-    
-    if (validation && !validation.isValid && validation.overBy > 0) {
-      // Auto-correct: send correction prompt
-      setIsCorreecting(true);
-      
-      const correctionPrompt = generateCorrectionPrompt(validation, response, slateType === 'showdown');
-      const correctionHistory = [...newHistory, 
-        { role: 'assistant', content: response },
-        { role: 'user', content: correctionPrompt }
-      ];
-      
-      // Add system message showing correction is happening
-      setMessages(prev => [...prev, { role: 'system', content: '🔄 Lineup over cap — auto-correcting...' }]);
-      
-      const correctedResponse = await callAPI(correctionHistory);
-      
-      // Remove the system message and add corrected response
-      setMessages(prev => {
-        const filtered = prev.filter(m => m.role !== 'system');
-        return [...filtered, { role: 'assistant', content: correctedResponse }];
-      });
-      
-      // Update history with full conversation
-      setHistory([...correctionHistory, { role: 'assistant', content: correctedResponse }]);
-      setIsCorreecting(false);
-    } else {
-      setHistory(prev => [...prev, { role: 'assistant', content: response }]);
-    }
-    
     setIsTyping(false);
   };
 
-  const quickPrompts = slateType === 'showdown' 
-    ? ['Build GPP lineup', 'CMC or Caleb Captain?', 'Value FLEX plays']
-    : ['Build GPP lineup', 'Best spread bets', 'Break down JAX @ IND'];
-
   const renderContent = (content) => content.split('\n').map((line, i) => {
-    const parts = line.split(/(\*\*[^*]+\*\*)/g).map((p, j) => p.startsWith('**') && p.endsWith('**') ? <strong key={j} style={{color:'#fff'}}>{p.slice(2,-2)}</strong> : p);
-    if (line.trim().match(/^[•\-\*]/)) return <div key={i} style={{paddingLeft:'12px',marginBottom:'4px',display:'flex',gap:'8px'}}><span style={{color:slateType==='showdown'?'#ffaa00':'#00ff88'}}>•</span><span>{parts}</span></div>;
-    return <p key={i} style={{margin:line===''?'8px 0':'4px 0'}}>{parts}</p>;
+    const parts = line.split(/(\*\*[^*]+\*\*)/g).map((p, j) => 
+      p.startsWith('**') && p.endsWith('**') ? <strong key={j} style={{color:'#fff'}}>{p.slice(2,-2)}</strong> : p
+    );
+    if (line.trim().match(/^[•\-\*]/)) {
+      return <div key={i} style={{paddingLeft:'12px',marginBottom:'4px',display:'flex',gap:'8px'}}>
+        <span style={{color: accent}}>•</span><span>{parts}</span>
+      </div>;
+    }
+    return <p key={i} style={{margin: line === '' ? '8px 0' : '4px 0'}}>{parts}</p>;
   });
 
-  const accent = slateType === 'showdown' ? '#ffaa00' : '#00ff88';
+  // ============================================================
+  // UI HELPERS
+  // ============================================================
 
-  // Player Card Component
-  const PlayerCard = ({ player, showSlot }) => (
-    <div 
-      onClick={() => setSelectedPlayer(player)}
-      style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px',background:showSlot && player.slot==='CPT'?'rgba(255,170,0,0.05)':'rgba(255,255,255,0.03)',border:showSlot && player.slot==='CPT'?'1px solid rgba(255,170,0,0.1)':'1px solid rgba(255,255,255,0.05)',borderRadius:'10px',marginBottom:'6px',cursor:'pointer',transition:'all 0.2s'}}
-      onMouseEnter={e => e.currentTarget.style.background = showSlot && player.slot==='CPT'?'rgba(255,170,0,0.1)':'rgba(255,255,255,0.08)'}
-      onMouseLeave={e => e.currentTarget.style.background = showSlot && player.slot==='CPT'?'rgba(255,170,0,0.05)':'rgba(255,255,255,0.03)'}
-    >
-      <div>
-        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-          <span style={{fontWeight:'600',fontSize:'14px'}}>{player.name}</span>
-          <span style={{color:slateType==='showdown'?(player.team==='SF'?'#c9a227':'#f26522'):'rgba(255,255,255,0.4)',fontSize:'10px',background:slateType==='showdown'?(player.team==='SF'?'rgba(201,162,39,0.15)':'rgba(242,101,34,0.15)'):'rgba(255,255,255,0.05)',padding:'2px 8px',borderRadius:'4px',fontWeight:'600'}}>{player.team}</span>
-          {player.opp && <span style={{color:'rgba(255,255,255,0.3)',fontSize:'11px'}}>{player.opp}</span>}
-        </div>
-        <p style={{margin:'4px 0 0',fontSize:'11px',color:'rgba(255,255,255,0.4)'}}>{player.notes}</p>
-      </div>
-      <div style={{textAlign:'right'}}>
-        <span style={{color:accent,fontSize:'14px',fontWeight:'700'}}>${player.salary?.toLocaleString()}</span>
-        <p style={{margin:'2px 0 0',fontSize:'11px',color:'rgba(255,255,255,0.5)'}}>{showSlot && player.slot==='CPT' ? `${(player.avg*1.5).toFixed(1)} pt ceil` : `${player.avg} avg`}</p>
-      </div>
-      <div style={{marginLeft:'8px',color:'rgba(255,255,255,0.3)',fontSize:'16px'}}>›</div>
-    </div>
-  );
+  const getResultBadge = (result) => {
+    if (result === 'WIN') return { bg: 'rgba(0,255,136,0.15)', color: '#00ff88', text: '✅ WIN' };
+    if (result === 'LOSS') return { bg: 'rgba(255,68,68,0.15)', color: '#ff4444', text: '❌ LOSS' };
+    if (result === 'PUSH') return { bg: 'rgba(255,255,255,0.1)', color: '#888', text: '➖ PUSH' };
+    return { bg: 'rgba(255,170,0,0.15)', color: '#ffaa00', text: '⏳ PENDING' };
+  };
+
+  const wins = myPicks.filter(p => p.result === 'WIN').length;
+  const losses = myPicks.filter(p => p.result === 'LOSS').length;
+  const pending = myPicks.filter(p => p.result === 'PENDING').length;
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#0a0a0f 0%,#1a1a2e 50%,#0f0f1a 100%)',color:'#fff',fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif'}}>
       
-      {/* Player Modal */}
-      {selectedPlayer && (
-        <div onClick={() => setSelectedPlayer(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',backdropFilter:'blur(8px)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
-          <div style={{background:'linear-gradient(145deg,#1a1a2e,#16213e)',borderRadius:'16px',maxWidth:'500px',width:'100%',maxHeight:'80vh',overflow:'auto',border:`1px solid ${accent}44`}} onClick={e => e.stopPropagation()}>
-            <div style={{padding:'20px',borderBottom:`1px solid ${accent}22`}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'start'}}>
-                <div>
-                  <h2 style={{margin:0,fontSize:'20px'}}>{selectedPlayer.name}</h2>
-                  <p style={{margin:'4px 0 0',color:'rgba(255,255,255,0.5)',fontSize:'13px'}}>{selectedPlayer.team} • {selectedPlayer.pos} • {selectedPlayer.opp || (slateType==='showdown'?'CHI @ SF':'')}</p>
-                </div>
-                <div style={{textAlign:'right'}}>
-                  <span style={{color:accent,fontSize:'20px',fontWeight:'700'}}>${selectedPlayer.salary?.toLocaleString()}</span>
-                  <p style={{margin:'4px 0 0',color:'rgba(255,255,255,0.5)',fontSize:'12px'}}>{selectedPlayer.avg} FPPG</p>
-                </div>
-              </div>
-            </div>
-            <div style={{padding:'20px'}}>
-              {loadingPlayer ? (
-                <div style={{textAlign:'center',padding:'40px',color:'rgba(255,255,255,0.5)'}}>
-                  <div style={{width:'24px',height:'24px',border:`2px solid ${accent}`,borderTopColor:'transparent',borderRadius:'50%',animation:'spin 1s linear infinite',margin:'0 auto 12px'}}></div>
-                  Fetching player intel...
-                </div>
-              ) : playerInfo ? (
-                <div style={{fontSize:'13px',lineHeight:'1.7'}}>{renderContent(playerInfo)}</div>
-              ) : null}
-            </div>
-            <div style={{padding:'16px 20px',borderTop:`1px solid ${accent}22`,textAlign:'right'}}>
-              <button onClick={() => setSelectedPlayer(null)} style={{background:accent,color:'#000',border:'none',padding:'10px 24px',borderRadius:'8px',fontWeight:'600',cursor:'pointer'}}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
+      {/* HEADER */}
       <header style={{background:'rgba(0,0,0,0.3)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(255,255,255,0.05)',padding:'12px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,zIndex:50}}>
         <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-          <div style={{width:'36px',height:'36px',background:`linear-gradient(135deg,${accent},${slateType==='showdown'?'#cc8800':'#00aa55'})`,borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px'}}>🏈</div>
+          <div style={{width:'36px',height:'36px',background:`linear-gradient(135deg,${accent},${accent}88)`,borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px'}}>🎯</div>
           <div>
-            <h1 style={{margin:0,fontSize:'18px',fontWeight:'700',letterSpacing:'-0.5px'}}>GRIDLOCK AI</h1>
-            <p style={{margin:0,fontSize:'11px',color:'rgba(255,255,255,0.4)',letterSpacing:'0.5px'}}>NFL WEEK 17 • {slateType==='showdown'?'SNF SHOWDOWN':'MAIN SLATE'}</p>
+            <h1 style={{margin:0,fontSize:'18px',fontWeight:'700'}}>GRIDLOCK AI</h1>
+            <p style={{margin:0,fontSize:'11px',color:'rgba(255,255,255,0.4)'}}>
+              {sport.icon} {sport.name} • LIVE ODDS
+              {apiRemaining !== null && <span style={{marginLeft:'8px',color:apiRemaining < 50 ? '#ff4444' : accent}}>({apiRemaining} API calls left)</span>}
+            </p>
           </div>
         </div>
-        <div style={{display:'flex',gap:'8px'}}>
-          <button onClick={()=>setSlateType('main')} style={{padding:'8px 16px',borderRadius:'8px',border:'none',background:slateType==='main'?'#00ff88':'rgba(255,255,255,0.05)',color:slateType==='main'?'#000':'#fff',fontWeight:'600',fontSize:'12px',cursor:'pointer'}}>MAIN</button>
-          <button onClick={()=>setSlateType('showdown')} style={{padding:'8px 16px',borderRadius:'8px',border:'none',background:slateType==='showdown'?'#ffaa00':'rgba(255,255,255,0.05)',color:slateType==='showdown'?'#000':'#fff',fontWeight:'600',fontSize:'12px',cursor:'pointer'}}>SHOWDOWN</button>
+
+        {/* Sport Toggle */}
+        <div style={{display:'flex',gap:'4px',background:'rgba(255,255,255,0.05)',padding:'4px',borderRadius:'8px'}}>
+          {Object.entries(SPORTS).map(([key, s]) => (
+            <button key={key} onClick={() => { setActiveSport(key); setSelectedGame(null); setProps([]); }}
+              style={{padding:'8px 16px',borderRadius:'6px',border:'none',background: activeSport === key ? s.accent : 'transparent',
+                color: activeSport === key ? '#000' : 'rgba(255,255,255,0.6)',fontWeight:'600',fontSize:'12px',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}}>
+              {s.icon} {s.name}
+            </button>
+          ))}
         </div>
+
+        {/* Tabs */}
         <div style={{display:'flex',gap:'4px'}}>
-          {['chat','games','dfs'].map(t=>(
-            <button key={t} onClick={()=>setActiveTab(t)} style={{padding:'8px 14px',borderRadius:'6px',border:'none',background:activeTab===t?'rgba(255,255,255,0.1)':'transparent',color:activeTab===t?'#fff':'rgba(255,255,255,0.5)',fontWeight:'500',fontSize:'12px',cursor:'pointer',textTransform:'uppercase'}}>{t}</button>
+          {['games','props','picks','chat'].map(t => (
+            <button key={t} onClick={() => setActiveTab(t)} 
+              style={{padding:'8px 14px',borderRadius:'6px',border:'none',background: activeTab === t ? 'rgba(255,255,255,0.1)' : 'transparent',
+                color: activeTab === t ? '#fff' : 'rgba(255,255,255,0.5)',fontWeight:'500',fontSize:'12px',cursor:'pointer',textTransform:'uppercase'}}>
+              {t}
+            </button>
           ))}
         </div>
       </header>
 
-      <main style={{maxWidth:activeTab==='chat'?'850px':'1100px',margin:'0 auto',padding:'16px',height:'calc(100vh - 70px)',display:'flex',flexDirection:'column'}}>
-        {activeTab === 'chat' ? (<>
-          <div style={{flex:1,overflow:'auto',paddingBottom:'16px'}}>
-            {messages.map((msg,i) => (
-              <div key={i} style={{display:'flex',justifyContent:msg.role==='user'?'flex-end':msg.role==='system'?'center':'flex-start',marginBottom:'12px'}}>
-                {msg.role === 'system' ? (
-                  <div style={{padding:'10px 16px',background:'rgba(255,170,0,0.15)',border:'1px solid rgba(255,170,0,0.3)',borderRadius:'20px',fontSize:'12px',color:'#ffaa00',display:'flex',alignItems:'center',gap:'8px'}}>
-                    <span style={{width:'12px',height:'12px',border:'2px solid #ffaa00',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 1s linear infinite'}}></span>
-                    {msg.content}
-                  </div>
-                ) : (
-                <div style={{maxWidth:'85%'}}>
-                  <div style={{padding:'14px 18px',borderRadius:msg.role==='user'?'18px 18px 4px 18px':'18px 18px 18px 4px',background:msg.role==='user'?`linear-gradient(135deg,${slateType==='showdown'?'#aa7700':'#00aa55'},${slateType==='showdown'?'#886600':'#008844'})`:'rgba(255,255,255,0.05)',border:msg.role==='user'?'none':'1px solid rgba(255,255,255,0.08)',fontSize:'13px',lineHeight:'1.6'}}>{renderContent(msg.content)}</div>
-                  {msg.role === 'assistant' && (
-                    <SalaryValidator 
-                      validation={validateLineup(msg.content, slateType === 'showdown')} 
-                      accent={accent}
-                      isCorreecting={isCorreecting}
-                    />
-                  )}
-                </div>
-                )}
+      <main style={{maxWidth: activeTab === 'chat' ? '850px' : '1200px', margin:'0 auto', padding:'16px', minHeight:'calc(100vh - 70px)'}}>
+        
+        {/* ============ GAMES TAB ============ */}
+        {activeTab === 'games' && (
+          <div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                <h2 style={{margin:0,fontSize:'14px',color:accent,letterSpacing:'1px'}}>{sport.name} GAMES</h2>
+                <span style={{fontSize:'12px',color:'rgba(255,255,255,0.4)'}}>{games.length} games</span>
+                {lastUpdate && <span style={{fontSize:'11px',color:'rgba(255,255,255,0.3)'}}>Updated {lastUpdate.toLocaleTimeString()}</span>}
               </div>
-            ))}
-            {isTyping && <div style={{display:'flex',gap:'4px',padding:'12px'}}><span style={{width:'8px',height:'8px',background:accent,borderRadius:'50%',animation:'pulse 1s infinite'}}></span><span style={{width:'8px',height:'8px',background:accent,borderRadius:'50%',animation:'pulse 1s infinite 0.2s'}}></span><span style={{width:'8px',height:'8px',background:accent,borderRadius:'50%',animation:'pulse 1s infinite 0.4s'}}></span></div>}
-            <div ref={messagesEndRef} />
-          </div>
-          <div style={{display:'flex',gap:'8px',marginBottom:'12px',flexWrap:'wrap'}}>
-            {quickPrompts.map((p,i)=>(<button key={i} onClick={()=>setInput(p)} style={{padding:'8px 14px',borderRadius:'20px',border:`1px solid ${accent}44`,background:'transparent',color:accent,fontSize:'12px',cursor:'pointer',transition:'all 0.2s'}}>{p}</button>))}
-          </div>
-          <div style={{display:'flex',gap:'12px'}}>
-            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder={slateType==='showdown'?'Ask about Showdown strategy...':'Ask about lineups, props, spreads...'} style={{flex:1,padding:'14px 18px',borderRadius:'12px',border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.03)',color:'#fff',fontSize:'14px',outline:'none'}} />
-            <button onClick={send} style={{padding:'14px 24px',borderRadius:'12px',border:'none',background:`linear-gradient(135deg,${accent},${slateType==='showdown'?'#cc8800':'#00aa55'})`,color:'#000',fontWeight:'600',cursor:'pointer'}}>Send</button>
-          </div>
-        </>) : activeTab === 'games' ? (
-          <div style={{overflow:'auto'}}>
-            <h2 style={{fontSize:'12px',color:accent,letterSpacing:'2px',marginBottom:'16px'}}>WEEK 17 GAMES</h2>
-            {SUNDAY_GAMES.map(g => (
-              <div key={g.id} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:'12px',padding:'16px',marginBottom:'12px'}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
-                  <span style={{fontWeight:'700',fontSize:'16px'}}>{g.away} @ {g.home}</span>
-                  <span style={{color:'rgba(255,255,255,0.4)',fontSize:'12px'}}>{g.time}</span>
-                </div>
-                <div style={{display:'flex',gap:'16px',fontSize:'13px',color:'rgba(255,255,255,0.6)'}}>
-                  <span style={{color:accent}}>{g.spread}</span>
-                  <span>O/U {g.total}</span>
-                  <span>{g.awayRecord} vs {g.homeRecord}</span>
-                </div>
-                <p style={{margin:'8px 0 0',fontSize:'12px',color:'rgba(255,255,255,0.4)'}}>{g.playoff}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{overflow:'auto'}}>
-            <div style={{background:`linear-gradient(135deg,${accent}11,transparent)`,border:`1px solid ${accent}33`,borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:accent}}>
-              💡 Tap any player for detailed analysis, news & stats
+              <button onClick={loadGames} disabled={loading}
+                style={{padding:'8px 16px',borderRadius:'8px',border:`1px solid ${accent}44`,background:'transparent',color: accent,fontSize:'12px',cursor: loading ? 'wait' : 'pointer'}}>
+                {loading ? '⏳ Loading...' : '🔄 Refresh'}
+              </button>
             </div>
-            {slateType==='showdown'?(<>
-            <h2 style={{fontSize:'12px',color:'#ffaa00',letterSpacing:'2px',marginBottom:'16px'}}>SHOWDOWN PLAYER POOL</h2>
-            <h3 style={{fontSize:'11px',color:'#ffaa00',marginBottom:'10px'}}>👑 CAPTAIN OPTIONS (1.5x)</h3>
-            {SHOWDOWN_PLAYERS.filter(p=>p.slot==='CPT').map(p=>(<PlayerCard key={`c-${p.name}`} player={p} showSlot={true} />))}
-            <h3 style={{fontSize:'11px',color:'#00ff88',marginTop:'16px',marginBottom:'10px'}}>⚡ FLEX OPTIONS</h3>
-            {SHOWDOWN_PLAYERS.filter(p=>p.slot==='FLEX').map(p=>(<PlayerCard key={`f-${p.name}`} player={p} showSlot={false} />))}
-          </>):(<>
-            <h2 style={{fontSize:'12px',color:'#00ff88',letterSpacing:'2px',marginBottom:'16px'}}>DFS PLAYER POOL</h2>
-            {['QB','RB','WR','TE','DST'].map(pos=>(<div key={pos} style={{marginBottom:'20px'}}>
-              <h3 style={{fontSize:'11px',color:'rgba(255,255,255,0.4)',marginBottom:'10px',letterSpacing:'1px'}}>{pos==='QB'?'QUARTERBACKS':pos==='RB'?'RUNNING BACKS':pos==='WR'?'WIDE RECEIVERS':pos==='TE'?'TIGHT ENDS':'DEFENSE/ST'}</h3>
-              {DFS_PLAYERS.filter(p=>p.pos===pos).map(p=>(<PlayerCard key={p.name} player={p} showSlot={false} />))}
-            </div>))}
-          </>)}
-        </div>)}
+
+            {error && <div style={{background:'rgba(255,68,68,0.1)',border:'1px solid rgba(255,68,68,0.3)',borderRadius:'8px',padding:'12px 16px',marginBottom:'16px',fontSize:'13px',color:'#ff4444'}}>⚠️ {error}</div>}
+
+            {loading && games.length === 0 ? (
+              <div style={{textAlign:'center',padding:'60px',color:'rgba(255,255,255,0.5)'}}>⏳ Loading {sport.name} odds...</div>
+            ) : games.length === 0 ? (
+              <div style={{textAlign:'center',padding:'60px',color:'rgba(255,255,255,0.5)'}}>{sport.icon} No {sport.name} games scheduled</div>
+            ) : (
+              <div style={{display:'grid',gap:'12px'}}>
+                {games.map(game => (
+                  <div key={game.id} onClick={() => { setSelectedGame(game); setActiveTab('props'); }}
+                    style={{background: selectedGame?.id === game.id ? `${accent}11` : 'rgba(255,255,255,0.03)',
+                      border: selectedGame?.id === game.id ? `1px solid ${accent}44` : '1px solid rgba(255,255,255,0.08)',
+                      borderRadius:'12px',padding:'16px',cursor:'pointer',transition:'all 0.2s'}}>
+                    
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+                      <div>
+                        <div style={{fontWeight:'700',fontSize:'16px',marginBottom:'4px'}}>{game.awayTeam} @ {game.homeTeam}</div>
+                        <div style={{fontSize:'12px',color:'rgba(255,255,255,0.4)'}}>{formatTime(game.startTime)} • {game.bookmaker}</div>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                        <span style={{fontSize:'11px',color:accent}}>Click for props →</span>
+                        <div style={{background: getTimeUntil(game.startTime) === 'LIVE' ? 'rgba(255,68,68,0.2)' : 'rgba(255,255,255,0.05)',
+                          color: getTimeUntil(game.startTime) === 'LIVE' ? '#ff4444' : accent,padding:'6px 12px',borderRadius:'6px',fontSize:'12px',fontWeight:'600'}}>
+                          {getTimeUntil(game.startTime)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Odds Grid */}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px'}} onClick={e => e.stopPropagation()}>
+                      {/* Spread */}
+                      <div style={{background:'rgba(255,255,255,0.03)',borderRadius:'8px',padding:'12px'}}>
+                        <div style={{fontSize:'10px',color:'rgba(255,255,255,0.4)',marginBottom:'8px',letterSpacing:'1px'}}>SPREAD</div>
+                        {[game.spread?.away, game.spread?.home].map((side, idx) => side && (
+                          <div key={idx} onClick={() => addPick(game, 'Spread', { team: side.team, line: side.line, odds: side.odds })}
+                            style={{display:'flex',justifyContent:'space-between',padding:'6px 8px',borderRadius:'6px',cursor:'pointer',marginBottom: idx === 0 ? '4px' : 0,
+                              background:'rgba(255,255,255,0.02)',transition:'background 0.2s'}}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
+                            <span style={{fontSize:'13px'}}>{side.team}</span>
+                            <span style={{color:accent,fontWeight:'600'}}>{formatSpread(side.line)} ({formatOdds(side.odds)})</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Moneyline */}
+                      <div style={{background:'rgba(255,255,255,0.03)',borderRadius:'8px',padding:'12px'}}>
+                        <div style={{fontSize:'10px',color:'rgba(255,255,255,0.4)',marginBottom:'8px',letterSpacing:'1px'}}>MONEYLINE</div>
+                        {[game.ml?.away, game.ml?.home].map((side, idx) => side && (
+                          <div key={idx} onClick={() => addPick(game, 'ML', { team: side.team, odds: side.odds })}
+                            style={{display:'flex',justifyContent:'space-between',padding:'6px 8px',borderRadius:'6px',cursor:'pointer',marginBottom: idx === 0 ? '4px' : 0,
+                              background:'rgba(255,255,255,0.02)',transition:'background 0.2s'}}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
+                            <span style={{fontSize:'13px'}}>{side.team}</span>
+                            <span style={{color: side.odds > 0 ? '#00ff88' : '#ff9500',fontWeight:'600'}}>{formatOdds(side.odds)}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Total */}
+                      <div style={{background:'rgba(255,255,255,0.03)',borderRadius:'8px',padding:'12px'}}>
+                        <div style={{fontSize:'10px',color:'rgba(255,255,255,0.4)',marginBottom:'8px',letterSpacing:'1px'}}>TOTAL</div>
+                        {game.total && ['Over', 'Under'].map((side, idx) => (
+                          <div key={side} onClick={() => addPick(game, 'Total', { side, line: game.total.line, odds: side === 'Over' ? game.total.over : game.total.under })}
+                            style={{display:'flex',justifyContent:'space-between',padding:'6px 8px',borderRadius:'6px',cursor:'pointer',marginBottom: idx === 0 ? '4px' : 0,
+                              background:'rgba(255,255,255,0.02)',transition:'background 0.2s'}}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
+                            <span style={{fontSize:'13px'}}>{side} {game.total.line}</span>
+                            <span style={{color:accent,fontWeight:'600'}}>{formatOdds(side === 'Over' ? game.total.over : game.total.under)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============ PROPS TAB ============ */}
+        {activeTab === 'props' && (
+          <div>
+            {/* Game Selector */}
+            <div style={{marginBottom:'16px'}}>
+              <label style={{fontSize:'12px',color:'rgba(255,255,255,0.5)',marginBottom:'8px',display:'block'}}>SELECT GAME FOR PROPS</label>
+              <select 
+                value={selectedGame?.id || ''} 
+                onChange={(e) => setSelectedGame(games.find(g => g.id === e.target.value))}
+                style={{width:'100%',padding:'12px 16px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.05)',color:'#fff',fontSize:'14px'}}>
+                <option value="">Select a game...</option>
+                {games.map(g => (
+                  <option key={g.id} value={g.id}>{g.awayTeam} @ {g.homeTeam} — {formatTime(g.startTime)}</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedGame && (
+              <div style={{background:`${accent}11`,border:`1px solid ${accent}33`,borderRadius:'8px',padding:'12px 16px',marginBottom:'16px'}}>
+                <span style={{fontWeight:'600'}}>{selectedGame.awayTeam} @ {selectedGame.homeTeam}</span>
+                <span style={{color:'rgba(255,255,255,0.5)',marginLeft:'12px',fontSize:'13px'}}>{formatTime(selectedGame.startTime)}</span>
+              </div>
+            )}
+
+            {propsLoading ? (
+              <div style={{textAlign:'center',padding:'60px',color:'rgba(255,255,255,0.5)'}}>⏳ Loading player props...</div>
+            ) : propsError ? (
+              <div style={{background:'rgba(255,170,0,0.1)',border:'1px solid rgba(255,170,0,0.3)',borderRadius:'8px',padding:'16px',marginBottom:'16px'}}>
+                <div style={{color:'#ffaa00',marginBottom:'8px'}}>⚠️ {propsError}</div>
+                <div style={{fontSize:'12px',color:'rgba(255,255,255,0.5)'}}>
+                  Player props may require a paid API tier (~$20/mo) or you can manually add props below.
+                </div>
+              </div>
+            ) : props.length === 0 ? (
+              <div style={{textAlign:'center',padding:'40px',color:'rgba(255,255,255,0.5)'}}>
+                {selectedGame ? 'No props available for this game.' : 'Select a game above to view player props.'}
+              </div>
+            ) : (
+              <div style={{display:'grid',gap:'8px'}}>
+                <h3 style={{fontSize:'12px',color:accent,letterSpacing:'1px',margin:'0 0 8px'}}>PLAYER PROPS ({props.length})</h3>
+                {props.map((prop, i) => (
+                  <div key={i} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:'10px',padding:'14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div>
+                      <div style={{fontWeight:'600',fontSize:'14px'}}>{prop.player}</div>
+                      <div style={{fontSize:'12px',color:'rgba(255,255,255,0.5)'}}>{prop.market}</div>
+                    </div>
+                    <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                      <span style={{fontSize:'16px',fontWeight:'700',color:'#fff'}}>{prop.line}</span>
+                      <button onClick={() => addPropPick(prop)} 
+                        style={{padding:'6px 12px',borderRadius:'6px',border:'none',background:'rgba(0,255,136,0.15)',color:'#00ff88',fontSize:'12px',cursor:'pointer',fontWeight:'600'}}>
+                        O {formatOdds(prop.over)}
+                      </button>
+                      <button onClick={() => { /* Add under pick */ }}
+                        style={{padding:'6px 12px',borderRadius:'6px',border:'none',background:'rgba(255,68,68,0.15)',color:'#ff4444',fontSize:'12px',cursor:'pointer',fontWeight:'600'}}>
+                        U {formatOdds(prop.under)}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Manual Prop Entry */}
+            <div style={{marginTop:'24px',background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:'12px',padding:'16px'}}>
+              <h3 style={{fontSize:'12px',color:'rgba(255,255,255,0.5)',letterSpacing:'1px',margin:'0 0 12px'}}>➕ MANUAL PROP ENTRY</h3>
+              <p style={{fontSize:'12px',color:'rgba(255,255,255,0.4)',margin:'0 0 12px'}}>
+                If API props aren't available, manually add props from your sportsbook:
+              </p>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 80px 80px auto',gap:'8px',alignItems:'end'}}>
+                <input placeholder="Player name" style={{padding:'10px',borderRadius:'6px',border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.03)',color:'#fff',fontSize:'13px'}} />
+                <select style={{padding:'10px',borderRadius:'6px',border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.05)',color:'#fff',fontSize:'13px'}}>
+                  <option>Points</option>
+                  <option>Rebounds</option>
+                  <option>Assists</option>
+                  <option>3PM</option>
+                  <option>PRA</option>
+                </select>
+                <input placeholder="Line" style={{padding:'10px',borderRadius:'6px',border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.03)',color:'#fff',fontSize:'13px'}} />
+                <input placeholder="Odds" style={{padding:'10px',borderRadius:'6px',border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.03)',color:'#fff',fontSize:'13px'}} />
+                <button style={{padding:'10px 16px',borderRadius:'6px',border:'none',background:accent,color:'#000',fontWeight:'600',cursor:'pointer'}}>Add</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============ PICKS TAB ============ */}
+        {activeTab === 'picks' && (
+          <div>
+            {/* Summary */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4, 1fr)',gap:'12px',marginBottom:'20px'}}>
+              {[
+                { label: 'TOTAL', value: myPicks.length, color: accent },
+                { label: 'WINS', value: wins, color: '#00ff88', bg: 'rgba(0,255,136,0.05)', border: 'rgba(0,255,136,0.2)' },
+                { label: 'LOSSES', value: losses, color: '#ff4444', bg: 'rgba(255,68,68,0.05)', border: 'rgba(255,68,68,0.2)' },
+                { label: 'PENDING', value: pending, color: '#ffaa00', bg: 'rgba(255,170,0,0.05)', border: 'rgba(255,170,0,0.2)' },
+              ].map(stat => (
+                <div key={stat.label} style={{background: stat.bg || 'rgba(255,255,255,0.03)',border:`1px solid ${stat.border || 'rgba(255,255,255,0.08)'}`,borderRadius:'12px',padding:'16px',textAlign:'center'}}>
+                  <div style={{fontSize:'28px',fontWeight:'700',color:stat.color}}>{stat.value}</div>
+                  <div style={{fontSize:'11px',color:'rgba(255,255,255,0.5)',marginTop:'4px'}}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {myPicks.length === 0 ? (
+              <div style={{textAlign:'center',padding:'60px',color:'rgba(255,255,255,0.5)'}}>
+                📝 No picks yet. Click on any line in Games or Props to add a pick.
+              </div>
+            ) : (
+              <div style={{display:'grid',gap:'10px'}}>
+                {myPicks.map(pick => {
+                  const result = getResultBadge(pick.result);
+                  return (
+                    <div key={pick.id} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:'12px',padding:'16px'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                        <div>
+                          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                            <span style={{fontSize:'14px'}}>{SPORTS[pick.sport]?.icon}</span>
+                            <span style={{fontWeight:'600',fontSize:'14px'}}>{pick.game}</span>
+                          </div>
+                          <div style={{fontSize:'11px',color:'rgba(255,255,255,0.4)',marginTop:'2px'}}>{pick.gameTime.toLocaleString()} • {pick.pickType}</div>
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                          <span style={{background:result.bg,color:result.color,padding:'4px 12px',borderRadius:'6px',fontSize:'11px',fontWeight:'600'}}>{result.text}</span>
+                          <button onClick={() => removePick(pick.id)} style={{background:'rgba(255,68,68,0.1)',border:'none',color:'#ff4444',padding:'4px 8px',borderRadius:'4px',cursor:'pointer',fontSize:'12px'}}>✕</button>
+                        </div>
+                      </div>
+                      
+                      <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                        <span style={{color:accent,fontWeight:'700',fontSize:'16px'}}>
+                          {pick.pick.player || pick.pick.team || pick.pick.side} {pick.pick.line ? formatSpread(pick.pick.line) : ''}
+                        </span>
+                        <span style={{color:'rgba(255,255,255,0.5)',fontSize:'13px'}}>{formatOdds(pick.odds)}</span>
+                      </div>
+                      
+                      {pick.result === 'PENDING' && (
+                        <div style={{display:'flex',gap:'8px',marginTop:'12px'}}>
+                          <button onClick={() => updatePickResult(pick.id, 'WIN')} style={{flex:1,padding:'8px',borderRadius:'6px',border:'none',background:'rgba(0,255,136,0.15)',color:'#00ff88',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✓ Win</button>
+                          <button onClick={() => updatePickResult(pick.id, 'LOSS')} style={{flex:1,padding:'8px',borderRadius:'6px',border:'none',background:'rgba(255,68,68,0.15)',color:'#ff4444',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>✗ Loss</button>
+                          <button onClick={() => updatePickResult(pick.id, 'PUSH')} style={{flex:1,padding:'8px',borderRadius:'6px',border:'none',background:'rgba(255,255,255,0.1)',color:'#888',cursor:'pointer',fontWeight:'600',fontSize:'12px'}}>— Push</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============ CHAT TAB ============ */}
+        {activeTab === 'chat' && (
+          <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 100px)'}}>
+            <div style={{flex:1,overflow:'auto',paddingBottom:'16px'}}>
+              {messages.map((msg, i) => (
+                <div key={i} style={{display:'flex',justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', marginBottom:'12px'}}>
+                  <div style={{maxWidth:'85%'}}>
+                    <div style={{padding:'14px 18px',borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                      background: msg.role === 'user' ? `linear-gradient(135deg,${accent},${accent}88)` : 'rgba(255,255,255,0.05)',
+                      border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.08)',fontSize:'13px',lineHeight:'1.6',color: msg.role === 'user' ? '#000' : '#fff'}}>
+                      {renderContent(msg.content)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {isTyping && <div style={{display:'flex',gap:'4px',padding:'12px'}}>
+                <span style={{width:'8px',height:'8px',background:accent,borderRadius:'50%',animation:'pulse 1s infinite'}}></span>
+                <span style={{width:'8px',height:'8px',background:accent,borderRadius:'50%',animation:'pulse 1s infinite 0.2s'}}></span>
+                <span style={{width:'8px',height:'8px',background:accent,borderRadius:'50%',animation:'pulse 1s infinite 0.4s'}}></span>
+              </div>}
+              <div ref={messagesEndRef} />
+            </div>
+            
+            <div style={{display:'flex',gap:'12px'}}>
+              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} 
+                placeholder={`Ask about ${sport.name} games, spreads, props...`}
+                style={{flex:1,padding:'14px 18px',borderRadius:'12px',border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.03)',color:'#fff',fontSize:'14px',outline:'none'}} />
+              <button onClick={send} style={{padding:'14px 24px',borderRadius:'12px',border:'none',background:`linear-gradient(135deg,${accent},${accent}88)`,color:'#000',fontWeight:'600',cursor:'pointer'}}>Send</button>
+            </div>
+          </div>
+        )}
       </main>
-      <style>{`::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:rgba(255,255,255,0.02)}::-webkit-scrollbar-thumb{background:${accent}33;border-radius:3px}input::placeholder{color:rgba(255,255,255,0.3)}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
+      <style>{`
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+        ::-webkit-scrollbar-thumb { background: ${accent}33; border-radius: 3px; }
+        input::placeholder { color: rgba(255,255,255,0.3); }
+        select option { background: #1a1a2e; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+      `}</style>
     </div>
   );
 }
